@@ -1,0 +1,19 @@
+---
+# vars file for satellite6-server
+rhsm_repos_to_disable:
+  - rhel-7-server-htb-rpms
+  - rhel-7-server-tus-rpms
+  - rhel-7-server-aus-rpms
+  - rhel-7-server-nfv-rpms
+  - rhel-7-server-rt-rpms
+
+satellite_server_repos:
+  - rhel-7-server-satellite-6.6-rpms
+  - rhel-7-server-satellite-maintenance-6-rpms
+  - rhel-server-rhscl-7-rpms
+  - rhel-7-server-ansible-2.8-rpms
+
+satellite_package: satellite-6.6.0-7.el7sat.noarch
+rhsm_utils_repo_url: https://github.com/RedHatSatellite/rhsmTools.git
+rhsm_utils_repo_version: master
+rhsm_utils_repo_dest: /home/cloud-user/rhsmTools

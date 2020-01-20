@@ -1,0 +1,30 @@
+---
+- name: Configure hosts file
+  template:
+    src: "hosts.j2"
+    dest: /etc/hosts
+    owner: root
+    group: root
+    serole: object_r
+    setype: net_conf_t
+    seuser: system_u
+  tags:
+    - pre_install
+
+- name: Disable debug and source repositories
+  command: /sbin/subscription-manager repos --disable "{{ item }}"
+  loop: "{{ rhsm_repos_to_disable }}"
+  ignore_errors: yes
+  tags:
+    - pre_install
+
+- name: Enable required repositories
+  command: /sbin/subscription-manager repos --enable "{{ item }}"
+  loop: "{{ satellite_server_repos }}"
+  tags:
+    - pre_install
+
+- name: Clean yum cache
+  command: /bin/yum clean all
+  tags:
+    - pre_install

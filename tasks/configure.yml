@@ -1,0 +1,114 @@
+---
+# now to configure satellite 6
+- name: Download rhsm utility scripts
+  git:
+    repo: "{{ rhsm_utils_repo_url }}"
+    version: "{{ rhsm_utils_repo_version }}"
+    dest: "{{ rhsm_utils_repo_dest }}"
+  tags:
+    - post_install
+  become: no
+
+- name: Download subscription manifest from RHSM
+  command: "{{ rhsm_utils_repo_dest }}/rhsmDownloadManifest.py -l {{ rhsm_username }} -p {{ rhsm_password }} \
+           -s {{ rhsm_satellite_name }} -d"
+  register: rhsmDownloadManifest_out
+  tags:
+    - register_satellite
+
+# use splicing to remove last string from last line of stdout
+- name: Extract downloaded manifest name
+  set_fact:
+    manifest_name: "{{ rhsmDownloadManifest_out.stdout_lines[-1].split(' ')[-1] }}"
+  tags:
+    - register_satellite
+
+- name: Upload manifest to satellite
+  command: "hammer subscription upload --file {{ manifest_name }} --organization '{{ satellite_organization }}'"
+  tags:
+    - register_satellite
+
+# Had to split enabling products and repositories into two tasks
+# Inconsistent options as some throw errors if a release is specified
+- name: Enable first set of required products and repositories
+  command: "hammer repository-set enable --product '{{ item.product }}' --basearch {{ item.basearch }} \
+           --releasever {{ item.release }} --name '{{ item.name }}' --organization '{{ satellite_organization }}'"
+  loop: "{{ satellite_client_repositories_with_releases }}"
+  register: rep1_out
+  failed_when: not (rep1_out.rc == 0 or rep1_out.rc == 70)
+  changed_when: rep1_out.rc == 0
+  tags:
+    - setup_rh_products
+
+- name: Enable second set of required products and repositories
+  command: "hammer repository-set enable --product '{{ item.product }}' --basearch {{ item.basearch }} \
+           --name '{{ item.name }}' --organization '{{ satellite_organization }}'"
+  loop: "{{ satellite_client_repositories_without_releases }}"
+  register: rep2_out
+  failed_when: not (rep2_out.rc == 0 or rep2_out.rc == 70)
+  changed_when: rep2_out.rc == 0
+  tags:
+    - setup_rh_products
+
+- name: Download GPG keys
+  get_url:
+    url: "{{ item.src }}"
+    dest: "{{ item.key }}"
+  loop: "{{ satellite_gpg_keys }}"
+  tags:
+    - setup_custom_products
+
+- name: Import GPG key into satellite
+  command: "hammer gpg create --key '{{ item.key }}' --name {{ item.name }} \
+           --organization '{{ satellite_organization }}'"
+  register: import_gpg_out
+  failed_when: not (import_gpg_out.rc == 0 or import_gpg_out.rc == 65)
+  changed_when: import_gpg_out.rc == 0
+  loop:  "{{ satellite_gpg_keys }}"
+  tags:
+    - setup_custom_products
+
+- name: Create custom products
+  command: "hammer product create --name='{{ item.name }}' --organization '{{ satellite_organization }}' \
+           --description '{{ item.description }}'"
+  register: custom_product_out
+  failed_when: not (custom_product_out.rc == 0 or custom_product_out.rc == 65)
+  changed_when: custom_product_out.rc == 0
+  loop: "{{ satellite_custom_products }}"
+  tags:
+    - setup_custom_products
+
+- name: Create custom repositories
+  command: "hammer repository create --name='{{ item.name }}' --organization '{{ satellite_organization }}' \
+           --product='{{ item.product }}' --content-type='{{ item.content_type }}' \
+           --publish-via-http={{ item.publish_via_http }} --url={{ item.url }} \
+           --checksum-type={{ item.checksum_type }} --gpg-key={{ item.gpg_key }}"
+  register: custom_repo_out
+  failed_when: not (custom_repo_out.rc == 0 or custom_repo_out.rc == 65)
+  changed_when: custom_repo_out.rc == 0
+  loop: "{{ satellite_custom_repositories }}"
+  tags:
+    - setup_custom_products
+
+- name: Create a sync plan
+  command: "hammer sync-plan create --name '{{ item.name }}' --description '{{ item.description }}' \
+           --organization '{{ satellite_organization }}' --interval {{ item.interval }} \
+           --sync-date '{{ item.sync_date }}' --enabled {{ item.enabled }}"
+  register: sync_plan_out
+  failed_when: not (sync_plan_out.rc == 0 or sync_plan_out.rc == 65)
+  changed_when: sync_plan_out.rc == 0
+  loop: "{{ satellite_sync_plans }}"
+  tags:
+    - setup_sync_plans
+
+- name: Add products to sync plan
+  command: "hammer product set-sync-plan --name '{{ item[1] }}' --organization '{{ satellite_organization }}' \
+           --sync-plan '{{ item[0].name }}'"
+  register: add_plan_out
+  failed_when: not (add_plan_out.rc == 0 or add_plan_out.rc == 65)
+  changed_when: add_plan_out.rc == 0
+  with_subelements: 
+    - "{{ satellite_sync_plans }}"
+    - products
+  tags:
+    - setup_sync_plans

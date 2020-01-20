@@ -1,0 +1,68 @@
+---
+# RHSM variables
+rhsm_satellite_name: satellite
+rhsm_username: user
+rhsm_password: password
+
+# Satellite Server config
+satellite_admin_username: admin
+satellite_admin_password: redhat
+satellite_organization: Demo
+satellite_location: Canberra
+satellite_server_api: "https://{{ rhsm_satellite_name }}/api/v2"
+
+satellite_client_repositories_with_releases:
+  - name: Red Hat Enterprise Linux 7 Server (RPMs)
+    product: Red Hat Enterprise Linux Server
+    basearch: x86_64
+    release: 7Server
+  - name: Red Hat Enterprise Linux 7 Server - Optional (RPMs)
+    product: Red Hat Enterprise Linux Server
+    basearch: x86_64
+    release: 7Server
+  - name: Red Hat Enterprise Linux 7 Server (Kickstart)
+    product: Red Hat Enterprise Linux Server
+    basearch: x86_64
+    release: 7.7
+  - name: Red Hat Enterprise Linux 6 Server (RPMs)
+    product: Red Hat Enterprise Linux Server
+    basearch: x86_64
+    release: 6Server
+
+# when running hammer repository-set enable, some repositories do not have any release info
+# specifying it here will currently cause errors
+satellite_client_repositories_without_releases:
+  - name: Red Hat Satellite Tools 6.6 (for RHEL 7 Server) (RPMs)
+    product: Red Hat Enterprise Linux Server
+    basearch: x86_64
+  - name: Red Hat Enterprise Linux 7 Server - Extras (RPMs)
+    product: Red Hat Enterprise Linux Server
+    basearch: x86_64
+  
+satellite_gpg_keys:
+  - name: GPG-EPEL-7
+    key: /tmp/RPM-GPG-KEY-EPEL-7
+    src: https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-7
+
+satellite_custom_products:
+  - name: Extra Packages for Enterprise Linux
+    description: Extra Packages for Enterprise Linux
+
+satellite_custom_repositories:
+  - name: EPEL 7 - x86_64
+    product: Extra Packages for Enterprise Linux
+    content_type: yum
+    publish_via_http: "true"
+    url: http://dl.fedoraproject.org/pub/epel/7/x86_64/
+    checksum_type: sha256
+    gpg_key: GPG-EPEL-7
+
+satellite_sync_plans:
+  - name: Daily sync plan
+    description: Syncs repositories in products daily
+    interval: daily
+    sync_date: "2019-02-09 15:30:00"
+    enabled: "yes"
+    products:
+      - Red Hat Enterprise Linux Server
+      - Extra Packages for Enterprise Linux

@@ -1,0 +1,17 @@
+---
+- name: Install satellite package
+  yum:
+    name: "{{ satellite_package }}"
+    state: present
+  tags:
+    - install
+
+- name: Deploy satellite server using foreman
+  command: "satellite-installer --scenario satellite \
+           --foreman-initial-organization {{ satellite_organization | quote }} \
+           --foreman-initial-location {{ satellite_location | quote }}
+           --foreman-initial-admin-username {{ satellite_admin_username | quote }} \
+           --foreman-initial-admin-password {{ satellite_admin_password | quote }} \
+           --foreman-proxy-dns"
+  tags:
+    - install
